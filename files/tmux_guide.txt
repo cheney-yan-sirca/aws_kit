@@ -1,0 +1,28 @@
+- Directories and files:
+   ~/work   where all the projects' source codes stay. You should have mounted the data volume on this directory.
+  Suggested structures
+   ~/work/projects  your projects
+
+- Terminal Quick tips
+   The environment uses tmux/mux as shared working session manager.
+   run '  mux sense-t_prod_sydney' to enter environment for production.
+   Modifications for tmux ( you may want to warm up with tmux )
+      -  binding key is changed from ctl-b to ctl-j
+      -  in the following descriptions, 'c-j o' meaning press "ctl-j", release key, and then press 'o'.
+      -  the following keys will help you 90% of the time
+         - c-j n        # next window. repeat and you will rotate through the windows
+         - c-j o        # rotate through multiple panes within a window.
+         - c-j c        # create a new window
+         - c-j ,        # rename the current window
+         - c-j |        # split current pane vertically
+         - c-j -        # split current pane horizontally
+         - c-j x        # kill current pane
+         - c-j X        # kill current session. Be serious of this!
+         - c-j d        # detach current session. (and still other users are controlling the tmux session)
+   Remember the tmux shares sessions to multiple clients who is attached to it. That mens you can monitor, and intervene the actions that other users are processing with. Always be careful of conflict with other users!!
+   Always check the status bar of tmux to find out the host name and session, especially you are operating production!!
+
+- Sessions
+   The session name is listed at the bottom left of tmux window. At any time, press 'c-j a', a command will be sent to the current bash session. The command will apply correct environment configuration(boto config, aws_config, etc) for the session. Practice: 1) press 'c-j c' to create a new shell window. 1) press 'c-j a' to apply the environment for current tmux session. 3) run 'aws ec2 describe-instances' should list all the available instances for the tmux session.
+        - c-j a   # apply correct AWS account settings
+        - c-j s   # switch AWS accounts

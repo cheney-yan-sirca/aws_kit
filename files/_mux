@@ -1,0 +1,9 @@
+#compdef mux
+
+_mux(){
+    local -a projects
+    projects=(`find ~/.tmuxinator/ -name '*.yml' | awk -F'/' '{print $NF}'| sed s:.yml::g`)
+    _arguments '*:projects:($projects)'
+}
+
+_mux "@"
