@@ -33,3 +33,6 @@ export PATH="$PATH:$HOME/bin"
 EOF
 
 sed -i 's/ZSH_THEME.*/ZSH_THEME="agnoster"/g' ~/.zshrc
+
+#======================================================================
+mv '~/*.sh' ~/bin
