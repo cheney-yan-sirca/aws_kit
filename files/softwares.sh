@@ -21,3 +21,5 @@ for x in /etc/yum.repos.d/* # this will enable all the repos by default
 do 
     sed -i 's/^enabled=.*$/enabled=1/g' $x 
 done
+
+/home/ec2-user/install_cloud_ssh_util.sh
