@@ -30,6 +30,7 @@ compinit
 echo >> ~/.zshrc << EOF
 export PATH="$PATH:$HOME/bin"
 #unsetopt share_history
+alias cld='cloud_ssh_util -F ~/.ssh/config'
 EOF
 
 sed -i 's/ZSH_THEME.*/ZSH_THEME="agnoster"/g' ~/.zshrc
