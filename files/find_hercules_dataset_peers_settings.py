@@ -14,7 +14,7 @@ def execute_or_exit(cmd):
 
 
 @cli.app.CommandLineApp
-def analyze_vpcs(app):
+def analyze_vpc_peering(app):
     print "This commands analyze vpc-peering settings between hercules cloud %s and dataset cloud %s" % (
         app.params.hercules_cloud_name, app.params.dataset_cloud_name)
     hercules_vpc_id = \
@@ -69,11 +69,11 @@ def analyze_vpcs(app):
         print "Failed to analyze the routing table...you may want to check it manually"
 
 
-analyze_vpcs.add_param("-H", "--hercules-cloud-name", help="the hercules cloud name", default="dash-ci-201507101215")
-analyze_vpcs.add_param("-HS", "--hercules-stack-name", help="the hercules cloud name, default queryapiserver", default="queryapiserver")
-analyze_vpcs.add_param("-D", "--dataset-cloud-name", help="the hercules cloud name",
+analyze_vpc_peering.add_param("-H", "--hercules-cloud-name", help="the hercules cloud name", default="dash-ci-201507101215")
+analyze_vpc_peering.add_param("-HS", "--hercules-stack-name", help="the hercules cloud name, default queryapiserver", default="queryapiserver")
+analyze_vpc_peering.add_param("-D", "--dataset-cloud-name", help="the hercules cloud name",
                        default="cyan-ausequities-ci-201506301137")
-analyze_vpcs.add_param("-DS", "--dataset-stack-name", help="the hercules cloud name, default datasetapi", default="datasetapi")
+analyze_vpc_peering.add_param("-DS", "--dataset-stack-name", help="the hercules cloud name, default datasetapi", default="datasetapi")
 
 if __name__ == "__main__":
-    analyze_vpcs.run()
+    analyze_vpc_peering.run()
