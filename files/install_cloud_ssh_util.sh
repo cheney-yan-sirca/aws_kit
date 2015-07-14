@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 cd /tmp
-git clone git@github.com:sirca/datasets
+while [ ! -d /tmp/datasets ];
+do
+    git clone git@github.com:sirca/datasets
+done
 cd /tmp/datasets/test_framework/datasets_test_framework
 
-udo python setup.py install
+sudo python setup.py install

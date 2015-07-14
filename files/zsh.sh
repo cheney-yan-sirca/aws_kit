@@ -20,11 +20,10 @@ mv ~/rsync_remote.sh ~/bin
 ~/.tmuxinator/prepare-env.py init-layout
 
 #=============== using zsh============================================
-sed -i 's/bashrc/zshrc/g' ~/.zshrc
 wget https://raw.github.com/robbyrussell/oh-my-zsh/master/tools/install.sh -O - | sh
 mkdir ~/.oh-my-zsh/completions
 mv ~/_mux ~/.oh-my-zsh/completions
-autoload -U compinit
+zsh -c "autoload -U compinit"
 compinit
 
 echo >> ~/.zshrc << EOF
@@ -33,7 +32,8 @@ export PATH="$PATH:$HOME/bin"
 alias cld='cloud_ssh_util -F ~/.ssh/config'
 EOF
 
-sed -i 's/ZSH_THEME.*/ZSH_THEME="agnoster"/g' ~/.zshrc
+sed -i 's/ZSH_THEME.*/ZSH_THEME="blinks"/g' ~/.zshrc
 
 #======================================================================
 mv '~/*.sh' ~/bin
+

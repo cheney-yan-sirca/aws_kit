@@ -2,7 +2,7 @@
 pushd `dirname $0` > /dev/null              
 HERE=`pwd`                                  
 popd > /dev/null
-
+set -vx
 user_name=$(whoami|xargs)
 if [ $(uname|xargs) == 'Darwin' ]; then
     home_dir="/Users/$user_name"
@@ -55,7 +55,7 @@ do
     echo .
     sleep 1
 done
-until [ "$(ssh -o ConnectTimeout=4 -i $SSH_KEY_FILE ec2-user@remote 'ls / | grep boot | wc -l' | xargs )" == '1' ] ;
+until [ "$(ssh -o ConnectTimeout=4 -i $SSH_KEY_FILE ec2-user@$remote 'ls / | grep boot | wc -l' | xargs )" == '1' ] ;
 do
    echo "."
    sleep 1
@@ -63,6 +63,7 @@ done
 scp -i $SSH_KEY_FILE -o StrictHostKeyChecking=no -r files/* ec2-user@$public_ip:~
 scp -i $SSH_KEY_FILE -o StrictHostKeyChecking=no ~/.ssh/id_rsa* ec2-user@$public_ip:~/.ssh/
 ssh -t -t -i $SSH_KEY_FILE -o StrictHostKeyChecking=no ec2-user@$public_ip "sudo bash /home/ec2-user/softwares.sh"
+ssh -t -t -i $SSH_KEY_FILE -o StrictHostKeyChecking=no ec2-user@$public_ip "bash /home/ec2-user/install_cloud_ssh_util.sh"
 
 if [ "$old_instance_id" != "" ]; then
     echo "Wait until the old instance has been totally terminate"
