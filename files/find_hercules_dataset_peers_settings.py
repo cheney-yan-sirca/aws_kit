@@ -18,10 +18,10 @@ def analyze_vpc_peering(app):
     print "This commands analyze vpc-peering settings between hercules cloud %s and dataset cloud %s" % (
         app.params.hercules_cloud_name, app.params.dataset_cloud_name)
     hercules_vpc_id = \
-        json.loads(execute_or_exit('aws ec2 describe-vpcs --filters Name=tag:aws:cloudformation:stack-name,Values="%s*"'
+        json.loads(execute_or_exit('aws ec2 describe-vpcs --filters Name=tag:aws:cloudformation:stack-name,Values="%s-*"'
                                    % app.params.hercules_cloud_name))['Vpcs'][0]['VpcId']
     dataset_vpc_id = \
-        json.loads(execute_or_exit('aws ec2 describe-vpcs --filters Name=tag:aws:cloudformation:stack-name,Values="%s*"'
+        json.loads(execute_or_exit('aws ec2 describe-vpcs --filters Name=tag:aws:cloudformation:stack-name,Values="%-s*"'
                                    % app.params.dataset_cloud_name))['Vpcs'][0]['VpcId']
     hercules_routing_tables = \
         json.loads(execute_or_exit('aws ec2 describe-route-tables --filters Name=vpc-id,Values="%s" '
