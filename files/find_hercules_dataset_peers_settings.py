@@ -69,10 +69,9 @@ def analyze_vpc_peering(app):
         print "Failed to analyze the routing table...you may want to check it manually"
 
 
-analyze_vpc_peering.add_param("-H", "--hercules-cloud-name", help="the hercules cloud name", default="dash-ci-201507101215")
+analyze_vpc_peering.add_param("-H", "--hercules-cloud-name", help="the hercules cloud name")
 analyze_vpc_peering.add_param("-HS", "--hercules-stack-name", help="the hercules cloud name, default queryapiserver", default="queryapiserver")
-analyze_vpc_peering.add_param("-D", "--dataset-cloud-name", help="the hercules cloud name",
-                       default="cyan-ausequities-ci-201506301137")
+analyze_vpc_peering.add_param("-D", "--dataset-cloud-name", help="the hercules cloud name")
 analyze_vpc_peering.add_param("-DS", "--dataset-stack-name", help="the hercules cloud name, default datasetapi", default="datasetapi")
 
 if __name__ == "__main__":
