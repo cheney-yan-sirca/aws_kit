@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import json, yaml
 import os, platform
+import re
 import cli.log
 
 TARGET_LAYOUT_DIR = '~/.tmuxinator'
@@ -30,7 +31,26 @@ sirca_username = cyan
 
 
 [DynamoDB]
-region = ap-southeast-2
+region = xxxx
+[DB]
+region = xxxx
+[Trac]
+region = xxxx
+[EBS]
+region = xxxx
+[s3]
+region = xxxx
+[Instance]
+region = xxxx
+[MySQL]
+region = xxxx
+[Pyami]
+region = xxxx
+[SDB]
+region = xxxx
+[SWF]
+region = xxxx
+
     """,
     "AWS_CONFIG_FILE": """[default]
 aws_access_key_id = xxxx
