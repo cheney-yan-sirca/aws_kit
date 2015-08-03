@@ -33,6 +33,10 @@ def analyze_vpc_peering(app):
                                                   % hercules_vpc_id))['Subnets']
     dataset_subnets = json.loads(execute_or_exit('aws ec2 describe-subnets --filters Name=vpc-id,Values="%s" '
                                                  % dataset_vpc_id))['Subnets']
+
+    all_load_balancers=json.loads(execute_or_exit('aws elb describe-load-balancers '
+                                                 ))['LoadBalancerDescriptions']
+
     hercules_route_table_list = []
     dataset_route_table_list = []
 
@@ -59,7 +63,7 @@ def analyze_vpc_peering(app):
                     result_list.append(association['RouteTableId'])
 
     if len(hercules_route_table_list) > 0 and len(dataset_route_table_list) > 0:
-        print "Suggested command:"
+        print "Suggested VPC peering command: =======>"
         print "aws-vpc-peer --region ap-southeast-2 --request-route-table %s --accept-route-table %s" \
               " %s-vpc %s-vpc" % (",".join(hercules_route_table_list),
                                   ",".join(dataset_route_table_list),
@@ -67,6 +71,15 @@ def analyze_vpc_peering(app):
                                   app.params.dataset_cloud_name)
     else:
         print "Failed to analyze the routing table...you may want to check it manually"
+
+    for load_balancer in all_load_balancers:
+        if load_balancer.get('VPCId') == dataset_vpc_id:
+            print "Suggested uri in the meta file: ============>"
+            print '"uri":"http://%s/<collection/<dataset>/v1"'%load_balancer['DNSName']
+
+    print "Suggested csload command:============>"
+    print "csload --owner %s --type dataset --domain dash-registry-dev dataset.json" % app.params.hercules_cloud_name
+    print "csload --owner %s --type collection --domain dash-registry-dev collection.json" % app.params.hercules_cloud_name
 
 
 analyze_vpc_peering.add_param("-H", "--hercules-cloud-name", help="the hercules cloud name", required=True)
