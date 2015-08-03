@@ -83,9 +83,9 @@ def analyze_vpc_peering(app):
 
 
 analyze_vpc_peering.add_param("-H", "--hercules-cloud-name", help="the hercules cloud name", required=True)
-analyze_vpc_peering.add_param("-HS", "--hercules-stack-name", help="the hercules cloud name, default queryapiserver", default="queryapiserver")
+analyze_vpc_peering.add_param("-HS", "--hercules-stack-name", help="the hercules stack name to peer from, default queryapiserver", default="queryapiserver")
 analyze_vpc_peering.add_param("-D", "--dataset-cloud-name", help="the hercules cloud name", required=True)
-analyze_vpc_peering.add_param("-DS", "--dataset-stack-name", help="the hercules cloud name, default datasetapi", default="datasetapi")
+analyze_vpc_peering.add_param("-DS", "--dataset-stack-name", help="the hercules stack name to peer to, default datasetapi", default="datasetapi")
 
 if __name__ == "__main__":
     analyze_vpc_peering.run()
