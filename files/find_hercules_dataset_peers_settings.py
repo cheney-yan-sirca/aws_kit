@@ -4,7 +4,7 @@ import json
 import os
 import subprocess
 import tempfile
-from time import sleep
+from time import sleep, time
 import cli.app
 import commands
 import sys
@@ -86,6 +86,7 @@ def analyze_vpc_peering(app):
 
     if "SSH_KEY_FILE" in os.environ and "AWS_CONFIG_FILE" in os.environ and "not found" not in execute_cmd(
             'which cloud_ssh_util', exit_on_failure=False):
+        now=time.strftime("%Y-%m-%dT%H:%M:%S.%sZ")
         load_balancer_dns = None
         for load_balancer in all_load_balancers:
             if load_balancer.get('VPCId') == dataset_vpc_id:
@@ -127,6 +128,7 @@ def analyze_vpc_peering(app):
                             dataset_meta = [dataset_meta]
                         dataset_meta[0]['uri'] = "http://%s/%s/%s/v1" % (load_balancer_dns, collection, dataset)
                         dataset_meta[0]["collections"] = [collection]
+                        dataset_meta[0]["lastUpdated"] = now
                         processed_datasets[dataset] = json.dumps(dataset_meta, indent=2)
                         processed_collections[dataset] = collection
                 except:
@@ -138,7 +140,8 @@ def analyze_vpc_peering(app):
                     "id": "",
                     "displayName": "",
                     "description": "",
-                    "longDescription": ""
+                    "longDescription": "",
+                    "lastUpdated":now
                 }
 
                 for collection in set(processed_collections.values()):
