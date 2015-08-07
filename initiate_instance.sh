@@ -33,7 +33,7 @@ export name=$(aws ec2 describe-images --filters Name=name,Values="$IMG*" | grep 
 echo "${name} is the latest $IMG iamge."
 export image_id=$(aws ec2 describe-images --filters Name=name,Values=${name} | grep '"ImageId"' | awk -F'"' '{print $4}' | sort | tail -1 | xargs )
 echo "${image_id} is the iamge id for ${name}."
-instance_id=$(aws ec2 run-instances --image-id ${image_id} --key-name $SSH_KEY_NAME --security-groups  remote-working-desktop  --iam-instance-profile Name=$INSTANCE_PROFILE --instance-initiated-shutdown-behavior stop  --instance-type t2.small | grep '"InstanceId"' | awk -F'"' '{print $4}' |xargs)
+instance_id=$(aws ec2 run-instances --image-id ${image_id} $EBS_OPTIONS --key-name $SSH_KEY_NAME --security-groups  remote-working-desktop  --iam-instance-profile Name=$INSTANCE_PROFILE --instance-initiated-shutdown-behavior stop  --instance-type t2.small | grep '"InstanceId"' | awk -F'"' '{print $4}' |xargs)
 echo "${instance_id} is the newly generated instance id."
 aws ec2 create-tags --resource ${instance_id} --tags Key=Name,Value=${user_name}-desktop
 aws ec2 create-tags --resource ${instance_id} --tags Key=Billing,Value=${use}

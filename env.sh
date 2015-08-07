@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:=ap-southeast-2}
 export BOTO_CONFIG=${BOTO_CONFIG:=/var/tmp/tmux-session-config/hermes_dev_sydney/boto_config}
 #export IMG=software_development
@@ -8,4 +9,5 @@ export SSH_KEY_NAME=$(echo $SSH_KEY_FILE|awk -F'/' '{print $NF}'| awk -F'.' '{pr
 export INSTANCE_PROFILE=dev-role
 #export INSTANCE_PROFILE=software-development
 export AWS_CONFIG_FILE=${AWS_CONFIG_FILE:=/var/tmp/tmux-session-config/hermes_dev_sydney/aws_config}
-export instance_type=t2.small
+export instance_type=t2.micro
+export EBS_OPTIONS='--block-device-mappings "[{\"DeviceName\": \"/dev/sdf\",\"Ebs\":{\"VolumeSize\":100}}]"'
