@@ -155,6 +155,9 @@ def analyze_vpc_peering(app):
                 for collection in set(processed_collections.values()):
                     cp = copy.deepcopy(dataset_template)
                     cp['id'] = collection
+                    cp['displayName'] = collection
+                    cp['description'] = collection
+                    cp['longDescription'] = collection
                     collection_content.append(cp)
                 collection_file_content = json.dumps(collection_content, indent=2)
 
