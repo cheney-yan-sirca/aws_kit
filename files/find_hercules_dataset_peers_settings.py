@@ -78,7 +78,7 @@ def analyze_vpc_peering(app):
             for association in route_table['Associations']:
                 if association.get('SubnetId', "NONE") in subnet_info:
                     result_list.append(association['RouteTableId'])
-    print hercules_route_table_list, dataset_route_table_list
+    # print hercules_route_table_list, dataset_route_table_list
     if len(hercules_route_table_list) > 0 and len(dataset_route_table_list) > 0:
         print "Suggested VPC peering command: =======>"
         print "aws-vpc-peer --region ap-southeast-2 --request-route-table %s --accept-route-table %s" \
