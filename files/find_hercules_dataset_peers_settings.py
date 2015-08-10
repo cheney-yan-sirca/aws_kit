@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 import copy
+import datetime
 import json
 import os
 import subprocess
 import tempfile
-from time import sleep, time
+from time import sleep
 import cli.app
 import commands
 import sys
@@ -26,12 +27,13 @@ def analyze_vpc_peering(app):
         app.params.hercules_cloud_name, app.params.dataset_cloud_name)
     hercules_vpc_id = \
         json.loads(
-            execute_cmd('aws ec2 describe-vpcs --filters Name=tag:aws:cloudformation:stack-name,Values="%s-*"'
-                        % app.params.hercules_cloud_name))['Vpcs'][0]['VpcId']
+            execute_cmd('aws ec2 describe-vpcs --filters Name=tag:aws:cloudformation:stack-name,Values="%s-%s"'
+                        % (app.params.hercules_cloud_name,'vpc')))['Vpcs'][0]['VpcId']
     dataset_vpc_id = \
         json.loads(
-            execute_cmd('aws ec2 describe-vpcs --filters Name=tag:aws:cloudformation:stack-name,Values="%-s*"'
-                        % app.params.dataset_cloud_name))['Vpcs'][0]['VpcId']
+            execute_cmd('aws ec2 describe-vpcs --filters Name=tag:aws:cloudformation:stack-name,Values="%s-%s"'
+                        % (app.params.dataset_cloud_name,'vpc')))['Vpcs'][0]['VpcId']
+    print hercules_vpc_id, dataset_vpc_id
     hercules_routing_tables = \
         json.loads(execute_cmd('aws ec2 describe-route-tables --filters Name=vpc-id,Values="%s" '
                                % hercules_vpc_id))['RouteTables']
@@ -49,16 +51,22 @@ def analyze_vpc_peering(app):
     hercules_route_table_list = []
     dataset_route_table_list = []
 
-    for subnets, routing_tables, result_list, stack_name in [
-        (hercules_subnets, hercules_routing_tables, hercules_route_table_list, app.params.hercules_stack_name),
-        (dataset_subnets, dataset_routing_tables, dataset_route_table_list, app.params.dataset_stack_name)]:
+    # print "Hercules subnets and Dataset subnets:"
+    # print hercules_subnets, dataset_subnets
+
+    for subnets, routing_tables, result_list, stack_name, cloud_name in [
+        (hercules_subnets, hercules_routing_tables, hercules_route_table_list, app.params.hercules_stack_name,
+         app.params.hercules_cloud_name),
+        (dataset_subnets, dataset_routing_tables, dataset_route_table_list, app.params.dataset_stack_name,
+         app.params.dataset_cloud_name)]:
         subnet_info = {}
         for subnet in subnets:
             name_match = False
             logical_id_match = False
             for tag in subnet['Tags']:
-                if tag['Key'] == 'aws:cloudformation:stack-name' and tag['Value']. \
-                        endswith('-%s' % stack_name):
+                # print tag['Value']
+                if tag['Key'] == 'aws:cloudformation:stack-name' and tag['Value'] \
+                        == ('%s-%s' % (cloud_name,stack_name)):
                     name_match = True
             if name_match:
                 for tag in subnet['Tags']:
@@ -70,7 +78,7 @@ def analyze_vpc_peering(app):
             for association in route_table['Associations']:
                 if association.get('SubnetId', "NONE") in subnet_info:
                     result_list.append(association['RouteTableId'])
-
+    print hercules_route_table_list, dataset_route_table_list
     if len(hercules_route_table_list) > 0 and len(dataset_route_table_list) > 0:
         print "Suggested VPC peering command: =======>"
         print "aws-vpc-peer --region ap-southeast-2 --request-route-table %s --accept-route-table %s" \
@@ -86,7 +94,7 @@ def analyze_vpc_peering(app):
 
     if "SSH_KEY_FILE" in os.environ and "AWS_CONFIG_FILE" in os.environ and "not found" not in execute_cmd(
             'which cloud_ssh_util', exit_on_failure=False):
-        now=time.strftime("%Y-%m-%dT%H:%M:%S.%sZ")
+        now=datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%sZ")
         load_balancer_dns = None
         for load_balancer in all_load_balancers:
             if load_balancer.get('VPCId') == dataset_vpc_id:
@@ -141,7 +149,7 @@ def analyze_vpc_peering(app):
                     "displayName": "",
                     "description": "",
                     "longDescription": "",
-                    "lastUpdated":now
+                    "lastUpdated": now
                 }
 
                 for collection in set(processed_collections.values()):
@@ -160,8 +168,9 @@ def analyze_vpc_peering(app):
                 with open(file_name, 'w') as f:
                     f.write(content)
                 dataset_file_list.append(file_name)
-                print "csload --owner %s --type dataset --domain dash-registry-dev %s" % (app.params.hercules_cloud_name,
-                                                                                          file_name)
+                print "csload --owner %s --type dataset --domain dash-registry-dev %s" % (
+                app.params.hercules_cloud_name,
+                file_name)
 
             with open(collection_file, 'w') as f:
                 f.write(collection_file_content)
