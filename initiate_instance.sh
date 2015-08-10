@@ -2,12 +2,13 @@
 pushd `dirname $0` > /dev/null              
 HERE=`pwd`                                  
 popd > /dev/null
-set -vx
 user_name=$(whoami|xargs)
 if [ $(uname|xargs) == 'Darwin' ]; then
     home_dir="/Users/$user_name"
+    sed_cmd="sed -i '' "
 else
     home_dir="/home/$user_name"
+    sed_cmd="sed -i "
 fi
 
 echo "Need to get root priority to update your /etc/hosts file"
@@ -29,11 +30,11 @@ fi
 echo "preparing the new instance"
 cd $HERE
 
-export name=$(aws ec2 describe-images --filters Name=name,Values="$IMG*" | grep '"Name"' | grep $IMG | awk -F'"' '{print $4}' | sort | tail -1 | xargs )
+export name=$(aws ec2 describe-images --filters Name=name,Values="$IMG" | grep '"Name"' | grep $IMG | awk -F'"' '{print $4}' | sort | tail -1 | xargs )
 echo "${name} is the latest $IMG iamge."
 export image_id=$(aws ec2 describe-images --filters Name=name,Values=${name} | grep '"ImageId"' | awk -F'"' '{print $4}' | sort | tail -1 | xargs )
 echo "${image_id} is the iamge id for ${name}."
-instance_id=$(aws ec2 run-instances --image-id ${image_id} $EBS_OPTIONS --key-name $SSH_KEY_NAME --security-groups  remote-working-desktop  --iam-instance-profile Name=$INSTANCE_PROFILE --instance-initiated-shutdown-behavior stop  --instance-type t2.small | grep '"InstanceId"' | awk -F'"' '{print $4}' |xargs)
+instance_id=$(aws ec2 run-instances --image-id ${image_id} $EBS_OPTIONS --key-name $SSH_KEY_NAME --security-groups  remote-working-desktop  --iam-instance-profile Name=$INSTANCE_PROFILE --instance-initiated-shutdown-behavior stop  --instance-type $instance_type | grep '"InstanceId"' | awk -F'"' '{print $4}' |xargs)
 echo "${instance_id} is the newly generated instance id."
 aws ec2 create-tags --resource ${instance_id} --tags Key=Name,Value=${user_name}-desktop
 aws ec2 create-tags --resource ${instance_id} --tags Key=Billing,Value=${use}
@@ -46,14 +47,14 @@ while [ "$public_ip" == "" ]; do
    public_ip=$(aws ec2 describe-instances --instance-id $instance_id | grep PublicIp | awk -F'"' '{print $4}' | head -n 1 | xargs )
 done
 
-sudo sed -i '' "s/^.*remote$/$public_ip remote/" /etc/hosts
-
+sudo $sed_cmd "s/^.*\Wremote\W*$//g"  /etc/hosts
+echo "$public_ip remote" | sudo tee --append /etc/hosts
 echo "Wait until ssh is ready for $public_ip"
 remote=$public_ip
 until [ "$(nc -z -w 4 $remote 22|wc -l|xargs)" == "0" ] ;
 do
     echo .
-    sleep 1
+    sleep 5
 done
 until [ "$(ssh -o ConnectTimeout=4 -i $SSH_KEY_FILE ec2-user@$remote 'ls / | grep boot | wc -l' | xargs )" == '1' ] ;
 do
@@ -77,6 +78,7 @@ if [ "$old_instance_id" != "" ]; then
 fi
 
 cat >> ~/.ssh/config <<EOF
+
 Host remote
         IdentityFile $SSH_KEY_FILE
         HostName remote
