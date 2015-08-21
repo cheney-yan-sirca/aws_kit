@@ -28,12 +28,12 @@ def analyze_vpc_peering(app):
     hercules_vpc_id = \
         json.loads(
             execute_cmd('aws ec2 describe-vpcs --filters Name=tag:aws:cloudformation:stack-name,Values="%s-%s"'
-                        % (app.params.hercules_cloud_name,'vpc')))['Vpcs'][0]['VpcId']
+                        % (app.params.hercules_cloud_name, 'vpc')))['Vpcs'][0]['VpcId']
     dataset_vpc_id = \
         json.loads(
             execute_cmd('aws ec2 describe-vpcs --filters Name=tag:aws:cloudformation:stack-name,Values="%s-%s"'
-                        % (app.params.dataset_cloud_name,'vpc')))['Vpcs'][0]['VpcId']
-    print hercules_vpc_id, dataset_vpc_id
+                        % (app.params.dataset_cloud_name, 'vpc')))['Vpcs'][0]['VpcId']
+    # print hercules_vpc_id, dataset_vpc_id
     hercules_routing_tables = \
         json.loads(execute_cmd('aws ec2 describe-route-tables --filters Name=vpc-id,Values="%s" '
                                % hercules_vpc_id))['RouteTables']
@@ -66,7 +66,7 @@ def analyze_vpc_peering(app):
             for tag in subnet['Tags']:
                 # print tag['Value']
                 if tag['Key'] == 'aws:cloudformation:stack-name' and tag['Value'] \
-                        == ('%s-%s' % (cloud_name,stack_name)):
+                        == ('%s-%s' % (cloud_name, stack_name)):
                     name_match = True
             if name_match:
                 for tag in subnet['Tags']:
@@ -94,12 +94,16 @@ def analyze_vpc_peering(app):
 
     if "SSH_KEY_FILE" in os.environ and "AWS_CONFIG_FILE" in os.environ and "not found" not in execute_cmd(
             'which cloud_ssh_util', exit_on_failure=False):
-        now=datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%sZ")
-        load_balancer_dns = None
+        now = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%sZ")
+        dataset_load_balancer_dns = None
+        hercules_load_balancer_dns = None
         for load_balancer in all_load_balancers:
             if load_balancer.get('VPCId') == dataset_vpc_id:
-                load_balancer_dns = load_balancer['DNSName']
-        if not load_balancer_dns:
+                dataset_load_balancer_dns = load_balancer['DNSName']
+            elif load_balancer.get('VPCId') == hercules_vpc_id and "Public" in load_balancer.get('DNSName'):
+                hercules_load_balancer_dns = load_balancer['DNSName']
+
+        if not dataset_load_balancer_dns or not hercules_load_balancer_dns:
             print "Cannot find load balancer DNSName for cloud %s and stack %s" % (app.params.dataset_cloud_name,
                                                                                    app.params.dataset_stack_name)
         else:
@@ -111,7 +115,8 @@ def analyze_vpc_peering(app):
             known_collections = {}
             processed_collections = {}
             processed_datasets = {}
-            collection_content = execute_cmd("aws s3 ls --recursive metadata-datasets-sirca-org-au | awk '{print $NF}'")
+            collection_content = execute_cmd(
+                "BUCKET=$(aws s3 ls | grep metadata | awk '{print $NF}');aws s3 ls --recursive $BUCKET | awk '{print $NF}'")
             for line in collection_content.splitlines():
                 tokens = line.split('/')
 
@@ -130,13 +135,10 @@ def analyze_vpc_peering(app):
                 # print url
                 try:
                     r = requests.get(url)
-                    if r.status_code == 200:
-                        dataset_meta = r.json()
-                        if not isinstance(dataset_meta, list):
-                            dataset_meta = [dataset_meta]
-                        dataset_meta[0]['uri'] = "http://%s/%s/%s/v1" % (load_balancer_dns, collection, dataset)
-                        dataset_meta[0]["collections"] = [collection]
-                        dataset_meta[0]["lastUpdated"] = now
+                    if r.status_code == 200 and r.json():
+                        dataset_meta = {}
+                        dataset_meta['uri'] = "http://%s/%s/%s/v1" % (dataset_load_balancer_dns, collection, dataset)
+                        dataset_meta["collections"] = [collection]
                         processed_datasets[dataset] = json.dumps(dataset_meta, indent=2)
                         processed_collections[dataset] = collection
                 except:
@@ -144,25 +146,27 @@ def analyze_vpc_peering(app):
             if len(processed_collections) != 0:
                 collection_content = []
                 dataset_template = {
-
-                    "id": "",
+                    "id": processed_collections.values()[0],
                     "displayName": "",
                     "description": "",
                     "longDescription": "",
                     "lastUpdated": now
                 }
-
-                for collection in set(processed_collections.values()):
-                    cp = copy.deepcopy(dataset_template)
-                    cp['id'] = collection
-                    cp['displayName'] = collection
-                    cp['description'] = collection
-                    cp['longDescription'] = collection
-                    collection_content.append(cp)
+                print "********Plese do update the content of collections.json to proper one according to github"
+                collection_content=dataset_template
+                #
+                # for collection in set(processed_collections.values()):
+                #     cp = copy.deepcopy(dataset_template)
+                #     cp['id'] = collection
+                #     cp['displayName'] = collection
+                #     cp['description'] = collection
+                #     cp['longDescription'] = collection
+                #     collection_content.append(cp)
                 collection_file_content = json.dumps(collection_content, indent=2)
+                
 
             # write to files
-            print "Suggested csload command: (the files are generated for you as follows)============>"
+            print "Suggested registration command: (the files are generated for you as follows)============>"
 
             dataset_file_list = []
             for dataset, content in processed_datasets.items():
@@ -171,15 +175,23 @@ def analyze_vpc_peering(app):
                 with open(file_name, 'w') as f:
                     f.write(content)
                 dataset_file_list.append(file_name)
-                print "csload --owner %s --type dataset --domain dash-registry-dev %s" % (
-                app.params.hercules_cloud_name,
-                file_name)
+                # print "csload --owner %s --type dataset --domain dash-registry-dev %s" % (
+                # app.params.hercules_cloud_name,
+                # file_name)
+                # print "OR"
+                print 'curl -i -k -H "Authorization: bearer $TOKEN" -X POST -H "Content-Type: application/json" ' \
+                      ' -d @%s https://%s/v1/discovery ' % (file_name, hercules_load_balancer_dns)
 
             with open(collection_file, 'w') as f:
                 f.write(collection_file_content)
-            print "csload --owner %s --type collection --domain dash-registry-dev %s" % (app.params.hercules_cloud_name,
-                                                                                         collection_file)
+            # print "csload --owner %s --type collection --domain dash-registry-dev %s" % (app.params.hercules_cloud_name,
+            #                                                                              collection_file)
+            # print "OR"
+            print 'curl -i -k -H "Authorization: bearer $TOKEN" -X POST -H "Content-Type: application/json" ' \
+                  ' -d @%s https://%s/v1/collections ' % (collection_file, hercules_load_balancer_dns)
 
+            print "-------------edit and validate the above json files via: ---"
+            print "http://metadata-tool.sirca.org.au.s3-website-ap-southeast-2.amazonaws.com/#editor-screen "
             execute_cmd("for x in $(ps -ef | grep '%s' | grep -v grep | awk '{print $2}'); do kill -9 $x; done" % \
                         (port_settings))
 
