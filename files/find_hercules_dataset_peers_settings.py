@@ -154,16 +154,9 @@ def analyze_vpc_peering(app):
                 }
                 print "********Retrieve the file from https://github.com/sirca/datasets/blob/" \
                       "develop/collections/%s.json and update into your own file"\
-                      % collection
+                      % processed_collections.values()[0]
                 collection_content=dataset_template
-                #
-                # for collection in set(processed_collections.values()):
-                #     cp = copy.deepcopy(dataset_template)
-                #     cp['id'] = collection
-                #     cp['displayName'] = collection
-                #     cp['description'] = collection
-                #     cp['longDescription'] = collection
-                #     collection_content.append(cp)
+
                 collection_file_content = json.dumps(collection_content, indent=2)
                 
 
