@@ -152,7 +152,9 @@ def analyze_vpc_peering(app):
                     "longDescription": "",
                     "lastUpdated": now
                 }
-                print "********Plese do update the content of collections.json to proper one according to github"
+                print "********Retrieve the file from https://github.com/sirca/datasets/blob/" \
+                      "develop/collections/%s.json and update into your own file"\
+                      % collection
                 collection_content=dataset_template
                 #
                 # for collection in set(processed_collections.values()):
