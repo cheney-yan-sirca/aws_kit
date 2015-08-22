@@ -9,7 +9,6 @@ from time import sleep
 import cli.app
 import commands
 import sys
-from requests import Request
 import requests
 
 
@@ -25,15 +24,31 @@ def execute_cmd(cmd, exit_on_failure=True):
 def analyze_vpc_peering(app):
     print "This commands analyze vpc-peering settings between hercules cloud %s and dataset cloud %s" % (
         app.params.hercules_cloud_name, app.params.dataset_cloud_name)
-    hercules_vpc_id = \
-        json.loads(
-            execute_cmd('aws ec2 describe-vpcs --filters Name=tag:aws:cloudformation:stack-name,Values="%s-%s"'
-                        % (app.params.hercules_cloud_name, 'vpc')))['Vpcs'][0]['VpcId']
-    dataset_vpc_id = \
-        json.loads(
-            execute_cmd('aws ec2 describe-vpcs --filters Name=tag:aws:cloudformation:stack-name,Values="%s-%s"'
-                        % (app.params.dataset_cloud_name, 'vpc')))['Vpcs'][0]['VpcId']
+    print "----------------------VPC Peering---------------------"
+    try:
+        hercules_vpc_id = \
+            json.loads(
+                execute_cmd('aws ec2 describe-vpcs --filters Name=tag:aws:cloudformation:stack-name,Values="%s-%s"'
+                            % (app.params.hercules_cloud_name, 'vpc')))['Vpcs'][0]['VpcId']
+        dataset_vpc_id = \
+            json.loads(
+                execute_cmd('aws ec2 describe-vpcs --filters Name=tag:aws:cloudformation:stack-name,Values="%s-%s"'
+                            % (app.params.dataset_cloud_name, 'vpc')))['Vpcs'][0]['VpcId']
+    except Exception as e:
+        print "Could not analyze cloud vpcs. check the cloud names."
+        sys.exit(1)
     # print hercules_vpc_id, dataset_vpc_id
+    ## checking current peerings
+
+    all_vpc_peers = json.loads(execute_cmd('aws ec2 describe-vpc-peering-connections'))
+    for peer in all_vpc_peers['VpcPeeringConnections']:
+
+        if peer['AccepterVpcInfo']['VpcId'] == dataset_vpc_id :
+                # and peer['RequesterVpcInfo']['VpcId'] == hercules_vpc_id:
+            print "The peer already exists with peer id: %s" % peer['VpcPeeringConnectionId']
+            print "To check or delete, go to https://%s.console.aws.amazon.com/vpc/home?region=%s#peer:filter=%s" \
+                  % (app.params.region, app.params.region, peer['VpcPeeringConnectionId'])
+
     hercules_routing_tables = \
         json.loads(execute_cmd('aws ec2 describe-route-tables --filters Name=vpc-id,Values="%s" '
                                % hercules_vpc_id))['RouteTables']
@@ -81,8 +96,9 @@ def analyze_vpc_peering(app):
     # print hercules_route_table_list, dataset_route_table_list
     if len(hercules_route_table_list) > 0 and len(dataset_route_table_list) > 0:
         print "Suggested VPC peering command: =======>"
-        print "aws-vpc-peer --region ap-southeast-2 --request-route-table %s --accept-route-table %s" \
-              " %s-vpc %s-vpc" % (",".join(hercules_route_table_list),
+        print "aws-vpc-peer --region %s --request-route-table %s --accept-route-table %s" \
+              " %s-vpc %s-vpc" % (app.params.region,
+                                  ",".join(hercules_route_table_list),
                                   ",".join(dataset_route_table_list),
                                   app.params.hercules_cloud_name,
                                   app.params.dataset_cloud_name)
@@ -131,6 +147,7 @@ def analyze_vpc_peering(app):
             subprocess.Popen(tunnel_cmd, shell=True, close_fds=True)
             sleep(2)
             for dataset, collection in known_collections.items():
+                sys.stdout.write(collection),sys.stdout.write('.'),sys.stdout.write(dataset),sys.stdout.write('.')
                 url = 'http://localhost:12391/%s/%s/v1/meta' % (collection, dataset)
                 # print url
                 try:
@@ -144,7 +161,6 @@ def analyze_vpc_peering(app):
                 except:
                     pass
             if len(processed_collections) != 0:
-                collection_content = []
                 dataset_template = {
                     "id": processed_collections.values()[0],
                     "displayName": "",
@@ -152,16 +168,15 @@ def analyze_vpc_peering(app):
                     "longDescription": "",
                     "lastUpdated": now
                 }
-                print "********Retrieve the file from https://github.com/sirca/datasets/blob/" \
-                      "develop/collections/%s.json and update into your own file"\
+                print "The collection file should be: https://github.com/sirca/datasets/blob/" \
+                      "develop/collections/%s.json " \
                       % processed_collections.values()[0]
-                collection_content=dataset_template
-
+                collection_content = dataset_template
                 collection_file_content = json.dumps(collection_content, indent=2)
-                
+
 
             # write to files
-            print "Suggested registration command: (the files are generated for you as follows)============>"
+            print "Suggested registration command: (please do update the collection file content)============>"
 
             dataset_file_list = []
             for dataset, content in processed_datasets.items():
@@ -186,7 +201,7 @@ def analyze_vpc_peering(app):
                   ' -d @%s https://%s/v1/collections ' % (collection_file, hercules_load_balancer_dns)
 
             print "-------------edit and validate the above json files via: ---"
-            print "http://metadata-tool.sirca.org.au.s3-website-ap-southeast-2.amazonaws.com/#editor-screen "
+            print "http://metadata-tool.sirca.org.au.s3-website-%s.amazonaws.com/#editor-screen " % app.params.region
             execute_cmd("for x in $(ps -ef | grep '%s' | grep -v grep | awk '{print $2}'); do kill -9 $x; done" % \
                         (port_settings))
 
@@ -206,6 +221,7 @@ analyze_vpc_peering.add_param("-HS", "--hercules-stack-name",
                               help="the hercules stack name to peer from, default queryapiserver",
                               default="queryapiserver")
 analyze_vpc_peering.add_param("-D", "--dataset-cloud-name", help="the hercules cloud name", required=True)
+analyze_vpc_peering.add_param("-R", "--region", help="the region", default='ap-southeast-2')
 analyze_vpc_peering.add_param("-DS", "--dataset-stack-name",
                               help="the hercules stack name to peer to, default datasetapi", default="datasetapi")
 
