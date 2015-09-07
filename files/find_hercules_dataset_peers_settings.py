@@ -123,10 +123,9 @@ def analyze_vpc_peering(app):
             print "Cannot find load balancer DNSName for cloud %s and stack %s" % (app.params.dataset_cloud_name,
                                                                                    app.params.dataset_stack_name)
         else:
-            ssh_config_file = tempfile.NamedTemporaryFile()
-            ssh_config_file.close()
-            ssh_config_file_name = ssh_config_file.name
-            collection_file = "%s_collection.json" % ssh_config_file.name
+
+            working_file = '/tmp/%s-%s' %(app.params.hercules_cloud_name, app.params.dataset_cloud_name)
+            collection_file = "%s_collection.json" % working_file
             collection_file_content = ""
             known_collections = {}
             processed_collections = {}
@@ -138,10 +137,10 @@ def analyze_vpc_peering(app):
 
                 if len(tokens) > 2 and len(tokens[0]) > 0 and len(tokens[1]) > 0 and tokens[2].endswith('.json'):
                     known_collections[tokens[1]] = tokens[0]
-            execute_cmd('cloud_ssh_util -F %s %s ' % (ssh_config_file_name, app.params.dataset_cloud_name))
+            execute_cmd('cloud_ssh_util -F %s %s ' % (working_file, app.params.dataset_cloud_name))
             # set up tunnel
             port_settings = "12391:localhost:80"
-            tunnel_cmd = 'ssh -N -n -F %s -L %s %s-%s1' % (ssh_config_file_name, port_settings,
+            tunnel_cmd = 'ssh -N -n -F %s -L %s %s-%s1' % (working_file, port_settings,
                                                            app.params.dataset_cloud_name,
                                                            app.params.dataset_stack_name)
             subprocess.Popen(tunnel_cmd, shell=True, close_fds=True)
@@ -180,7 +179,7 @@ def analyze_vpc_peering(app):
 
             dataset_file_list = []
             for dataset, content in processed_datasets.items():
-                file_name = "%s_dataset_%s.json" % (ssh_config_file.name, dataset)
+                file_name = "%s_dataset_%s.json" % (working_file, dataset)
 
                 with open(file_name, 'w') as f:
                     f.write(content)
