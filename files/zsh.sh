@@ -31,6 +31,7 @@ echo >> ~/.zshrc <<EOF
 export PATH="$PATH:$HOME/bin"
 #unsetopt share_history
 alias cld='cloud_ssh_util -F ~/.ssh/config'
+unsetopt share_history
 EOF
 
 sed -i 's/ZSH_THEME.*/ZSH_THEME="blinks"/g' ~/.zshrc
