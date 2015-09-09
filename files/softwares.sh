@@ -22,3 +22,6 @@ do
     sed -i 's/^enabled=.*$/enabled=1/g' $x 
 done
 
+yum install -y docker
+service docker start
+sudo usermod -a -G docker ec2-user

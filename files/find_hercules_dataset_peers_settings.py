@@ -162,9 +162,9 @@ def analyze_vpc_peering(app):
             if len(processed_collections) != 0:
                 dataset_template = {
                     "id": processed_collections.values()[0],
-                    "displayName": "",
-                    "description": "",
-                    "longDescription": "",
+                    "displayName": processed_collections.values()[0],
+                    "description": processed_collections.values()[0],
+                    "longDescription": processed_collections.values()[0],
                     "lastUpdated": now
                 }
                 print "The collection file should be: https://github.com/sirca/datasets/blob/" \
