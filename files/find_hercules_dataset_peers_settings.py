@@ -131,7 +131,7 @@ def analyze_vpc_peering(app):
             processed_collections = {}
             processed_datasets = {}
             collection_content = execute_cmd(
-                "BUCKET=$(aws s3 ls | grep metadata | awk '{print $NF}');aws s3 ls --recursive $BUCKET | awk '{print $NF}'")
+                "BUCKET=metadata-datasets-sirca-org-au ;aws s3 ls --recursive $BUCKET | awk '{print $NF}'")
             for line in collection_content.splitlines():
                 tokens = line.split('/')
 
