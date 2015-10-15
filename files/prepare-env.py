@@ -3,26 +3,27 @@ import json, yaml
 import os, platform
 import re
 import cli.log
+import ConfigParser, io
 
 TARGET_LAYOUT_DIR = '~/.tmuxinator'
 TARGET_ENV_DIR = '/var/tmp/tmux-session-config'
+boto_config_template = ConfigParser.ConfigParser(allow_no_value=True)
 
-templates = {
-    "BOTO_CONFIG": """[Credentials]
-aws_access_key_id = xxxx
-aws_secret_access_key = xxxx
-region = xxxx
+boto_config_template.readfp(io.BytesIO("""[Credentials]
+aws_access_key_id = <%aws_access_key_id%>
+aws_secret_access_key = <%aws_secret_access_key%>
+region = <%region%>
 
 [Boto]
 is_secure = True
 https_validate_certificates = False
 http_socket_timeout=100
-aws_access_key_id = xxxx
-aws_secret_access_key = xxxx
-region = xxxx
+aws_access_key_id = <%aws_access_key_id%>
+aws_secret_access_key = <%aws_secret_access_key%>
+region = <%region%>
 
 [Sirca]
-sirca_aws_region = xxxx
+sirca_aws_region = <%region%>
 sirca_product = xxxx
 sirca_subsystem=loader
 sirca_role=dev
@@ -31,58 +32,136 @@ sirca_username = cyan
 
 
 [DynamoDB]
-region = xxxx
+region = <%region%> 
 [DB]
-region = xxxx
+region = <%region%> 
 [Trac]
-region = xxxx
+region = <%region%> 
 [EBS]
-region = xxxx
+region = <%region%> 
 [s3]
-region = xxxx
+region = <%region%> 
 [Instance]
-region = xxxx
+region = <%region%> 
 [MySQL]
-region = xxxx
+region = <%region%> 
 [Pyami]
-region = xxxx
+region = <%region%> 
 [SDB]
-region = xxxx
+region = <%region%> 
 [SWF]
-region = xxxx
+region = <%region%> 
 
-    """,
-    "AWS_CONFIG_FILE": """[default]
-aws_access_key_id = xxxx
-aws_secret_access_key = xxxx
-region = xxxx
+    """))
 
-    """,
-    "source_file": """export BOTO_CONFIG=xxxx
-export AWS_CONFIG_FILE=xxxx
-export SSH_KEY_FILE=xxxx
-export PAPERTRAIL_API_TOKEN=xxxx
-"""
+aws_config_repeat_template = ConfigParser.ConfigParser(allow_no_value=True)
 
+aws_config_repeat_template.readfp(io.BytesIO("""[profile <%aws_profile%>]
+region = <%region%>
+"""))
+aws_credential_repeat_template = ConfigParser.ConfigParser(allow_no_value=True)
+
+aws_credential_repeat_template.readfp(io.BytesIO("""[<%aws_profile%>]
+aws_access_key_id = <%aws_access_key_id%>
+aws_secret_access_key = <%aws_secret_access_key%>
+"""))
+
+templates = {
+    "boto_config_template": boto_config_template,
+    "aws_credential_repeat_template": aws_credential_repeat_template,
+    "aws_config_repeat_template": aws_config_repeat_template
 }
+
+
+def replace_variables(possible_variable, variables):
+    for key, value in variables.items():
+        possible_variable = possible_variable.replace("<%{0}%>".format(key), value)
+    return possible_variable
+
+
+all_aws_config_content = []
+all_aws_credentials_content = []
+
+for path_name in [TARGET_LAYOUT_DIR, TARGET_ENV_DIR]:
+    path_name = os.path.expanduser(path_name)
+    if not os.path.exists(path_name):
+        os.makedirs(path_name)
+
+
+def prepare_global_aws_files(app, config, files_contained_path=TARGET_ENV_DIR, aws_credential_file='~/.aws/credentials',
+                             aws_config_file="~/.aws/config"):
+    shaped_vars = {}
+    for value in config.values():
+        variables = value['variables']
+        path_name = os.path.join(os.path.expanduser(files_contained_path), variables['aws_profile'])
+        if not os.path.exists(path_name):
+            os.makedirs(path_name)
+        vars = value['vars']  # this goes to environmental file
+
+        for var, var_val in vars.items():
+            shaped_vars[replace_variables(var, variables)] = replace_variables(var_val, variables)
+
+        for file in value['files']:
+            file_path = os.path.join(path_name, file['file_name'])
+            if 'var' in file:  # this needs to go into variable
+                shaped_vars[replace_variables(file['var'], variables)] = file_path
+            if 'content' in file:
+                with open(file_path, 'wb') as f:
+                    file_content = replace_variables(file['content'], variables)
+                    f.write(file_content)
+            elif 'content_template' in file:
+                template = templates[file['content_template']]
+                target_ini = ConfigParser.RawConfigParser()
+                for sect in template.sections():
+                    new_sect_name = replace_variables(sect, variables)
+                    target_ini.add_section(new_sect_name)
+                    for item in template.items(sect):
+                        key = item[0]
+                        value = item[1] if item[1] else "NONE"
+                        app.log.debug("processing variable %s:%s" % (replace_variables(key, variables),
+                                                                     replace_variables(value, variables)))
+                        target_ini.set(new_sect_name,
+                                       replace_variables(key, variables),
+                                       replace_variables(value, variables))
+                with open(file_path, 'wb') as f:
+                    target_ini.write(f)
+            if 'mod' in file:
+                os.chmod(file_path, int(file['mod'], 8))
+        for repeated_template, pool in {aws_credential_repeat_template: all_aws_credentials_content,
+                                        aws_config_repeat_template: all_aws_config_content}.items():
+            appearance = ConfigParser.RawConfigParser()
+            for sect in repeated_template.sections():
+                new_sect_name = replace_variables(sect, variables)
+                appearance.add_section(new_sect_name)
+                for item in repeated_template.items(sect):
+                    key = item[0]
+                    value = item[1] if item[1] else "NONE"
+                    appearance.set(new_sect_name,
+                                   replace_variables(key, variables),
+                                   replace_variables(value, variables))
+            pool.append(appearance)
+        with open(os.path.join(path_name, 'source-file'), 'wb') as f:
+            for k, v in shaped_vars.items():
+                f.write('export %s=%s' % (k, v))
+                f.write("\n")
+
+        prepare_tmux_layout(app, variables['aws_profile'], target_dir=os.path.expanduser(TARGET_LAYOUT_DIR))
+
+    with open(os.path.expanduser(aws_credential_file), 'wb') as f:
+        for x in all_aws_credentials_content:
+            x.write(f)
+
+    with open(os.path.expanduser(aws_config_file), 'wb') as f:
+        for x in all_aws_config_content:
+            x.write(f)
 
 
 @cli.log.LoggingApp
 def prepare_env(app):
     app.log.debug("Generating aws working environment from %s", app.params.config)
     config = json.load(open(os.path.join(os.path.dirname(__file__), app.params.config)))
+    prepare_global_aws_files(app, config)
 
-    if app.params.cmd == 'init-layout':
-        for _, value in config.items():
-            key = '%s_%s_%s' % (value['project'], value['profile'], value['region_name'])
-            prepare_tmux_layout(app, key, target_dir=os.path.expanduser(TARGET_LAYOUT_DIR))
-    else:
-        for _, value in config.items():
-            key = '%s_%s_%s' % (value['project'], value['profile'], value['region_name'])
-            if key == app.params.cmd:
-                prepare_aws_env(app, app.params.cmd, value, target_dir=os.path.expanduser(TARGET_ENV_DIR))
-                exit(0)
-        app.log.error("Failed to find an configuration for %s. Nothing is done.", app.params.cmd)
 
 def prepare_tmux_layout(app, name, target_dir):
     try:
@@ -94,11 +173,7 @@ def prepare_tmux_layout(app, name, target_dir):
 
         with open(os.path.join(target_dir, '%s.yml' % name), 'w') as f:
             layout = {'windows': [{'local': {'pre': None,
-                                             'panes': [
-                                                 "%s %s %s" % ("python",
-                                                               os.path.join(target_dir, os.path.basename(__file__)),
-                                                               "$(tmux list-panes -F '#{session_name} #{pane_active}' | grep -E ' 1$' | awk '{print $1}' | head -n 1)")
-                                             ],
+                                             'panes': [None],
                                              'layout': 'main-vertical'}}], 'root': '~/work/',
                       'name': str(name)}
             yaml.dump(layout, f)
@@ -107,51 +182,7 @@ def prepare_tmux_layout(app, name, target_dir):
         app.log.error("Failed to create yaml layout for %s, %s", name, e)
 
 
-def prepare_aws_env(app, name, value, target_dir):
-    try:
-        app.log.debug("Generating environmental file for %s", name)
-        try:
-            os.stat(os.path.join(target_dir, name))
-        except:
-            os.makedirs(os.path.join(target_dir, name))
-
-        for file in value['contents']['env']['file']:
-            file_name=file['file_name']
-            content=file['content']
-            key=file['key']
-            with open(os.path.join(target_dir, name, file_name), 'w') as f:
-                if content == "_FROM_TEMPLATE_":
-                    template = templates[key]
-                    for var, var_val in value['contents']['variables'].items():
-                        template = template.replace('%s = xxxx' % var, '%s = %s' % (var, var_val))
-                    f.writelines(template)
-                else:
-                    f.writelines(content)
-                if key == "SSH_KEY_FILE":
-                    os.chmod(os.path.join(target_dir, name, file_name), 0600)
-                f.close()
-        ## source file
-        with open(os.path.join(target_dir, name, 'source-file'), "w") as f:
-            template_string = templates['source_file']
-
-            for file in value['contents']['env']['file']:
-                var=file['key']
-                file=file['file_name']
-                template_string = template_string.replace('export %s=xxxx' % var,
-                                                          'export %s=%s' % (var, os.path.join(target_dir, name, file)))
-            for var, var_val in value['contents']['env']['content'].items():
-                template_string = template_string.replace('export %s=xxxx' % var,
-                                                          'export %s=%s' % (var, var_val))
-            f.writelines(template_string)
-            if not '.amzn1' in platform.uname()[2]:
-                f.writelines('source ~/py26/bin/activate')
-            f.close()
-    except StandardError as e:
-        app.log.error("Failed to create environment file for %s, %s", name, e)
-
-
 prepare_env.add_param("-c", "--config", help="the config file", default="env.json", type=str)
-prepare_env.add_param("cmd", help="The command to execute", type=str, default='init-layout')
 
 if __name__ == "__main__":
     prepare_env.run()
