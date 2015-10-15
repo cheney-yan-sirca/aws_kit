@@ -108,7 +108,7 @@ def analyze_vpc_peering(app):
 
     # collecting the info in the target cloud
 
-    if "SSH_KEY_FILE" in os.environ and "AWS_CONFIG_FILE" in os.environ and "not found" not in execute_cmd(
+    if "SSH_KEY_FILE" in os.environ and "not found" not in execute_cmd(
             'which cloud_ssh_util', exit_on_failure=False):
         now = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%sZ")
         dataset_load_balancer_dns = None
