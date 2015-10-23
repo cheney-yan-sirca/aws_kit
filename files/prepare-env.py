@@ -7,69 +7,18 @@ import ConfigParser, io
 
 TARGET_LAYOUT_DIR = '~/.tmuxinator'
 TARGET_ENV_DIR = '/var/tmp/tmux-session-config'
-boto_config_template = ConfigParser.ConfigParser(allow_no_value=True)
 
-boto_config_template.readfp(io.BytesIO("""[Credentials]
-aws_access_key_id = <%aws_access_key_id%>
-aws_secret_access_key = <%aws_secret_access_key%>
-region = <%region%>
-
-[Boto]
-is_secure = True
-https_validate_certificates = False
-http_socket_timeout=100
-aws_access_key_id = <%aws_access_key_id%>
-aws_secret_access_key = <%aws_secret_access_key%>
-region = <%region%>
-
-[Sirca]
-sirca_aws_region = <%region%>
-sirca_product = xxxx
-sirca_subsystem=loader
-sirca_role=dev
-sirca_project = xxxx
-sirca_username = cyan
-
-
-[DynamoDB]
-region = <%region%> 
-[DB]
-region = <%region%> 
-[Trac]
-region = <%region%> 
-[EBS]
-region = <%region%> 
-[s3]
-region = <%region%> 
-[Instance]
-region = <%region%> 
-[MySQL]
-region = <%region%> 
-[Pyami]
-region = <%region%> 
-[SDB]
-region = <%region%> 
-[SWF]
-region = <%region%> 
-
-    """))
-
-aws_config_repeat_template = ConfigParser.ConfigParser(allow_no_value=True)
-
-aws_config_repeat_template.readfp(io.BytesIO("""[profile <%aws_profile%>]
-region = <%region%>
-"""))
 aws_credential_repeat_template = ConfigParser.ConfigParser(allow_no_value=True)
 
 aws_credential_repeat_template.readfp(io.BytesIO("""[<%aws_profile%>]
 aws_access_key_id = <%aws_access_key_id%>
 aws_secret_access_key = <%aws_secret_access_key%>
+region = <%region%>
+
 """))
 
 templates = {
-    "boto_config_template": boto_config_template,
     "aws_credential_repeat_template": aws_credential_repeat_template,
-    "aws_config_repeat_template": aws_config_repeat_template
 }
 
 
@@ -89,7 +38,8 @@ for path_name in [TARGET_LAYOUT_DIR, TARGET_ENV_DIR]:
 
 
 def prepare_global_aws_files(app, config, files_contained_path=TARGET_ENV_DIR, aws_credential_file='~/.aws/credentials',
-                             aws_config_file="~/.aws/config"):
+                             ):
+    aws_credential_file=os.path.expanduser(aws_credential_file)
     shaped_vars = {}
     for value in config.values():
         variables = value['variables']
@@ -109,7 +59,7 @@ def prepare_global_aws_files(app, config, files_contained_path=TARGET_ENV_DIR, a
                 with open(file_path, 'wb') as f:
                     file_content = replace_variables(file['content'], variables)
                     f.write(file_content)
-            elif 'content_template' in file:
+            elif 'content_template' in file:  # this file is previsously for BOTO_CONFIG and might not needed any more.
                 template = templates[file['content_template']]
                 target_ini = ConfigParser.RawConfigParser()
                 for sect in template.sections():
@@ -128,7 +78,7 @@ def prepare_global_aws_files(app, config, files_contained_path=TARGET_ENV_DIR, a
             if 'mod' in file:
                 os.chmod(file_path, int(file['mod'], 8))
         for repeated_template, pool in {aws_credential_repeat_template: all_aws_credentials_content,
-                                        aws_config_repeat_template: all_aws_config_content}.items():
+                                        }.items():
             appearance = ConfigParser.RawConfigParser()
             for sect in repeated_template.sections():
                 new_sect_name = replace_variables(sect, variables)
@@ -139,20 +89,29 @@ def prepare_global_aws_files(app, config, files_contained_path=TARGET_ENV_DIR, a
                     appearance.set(new_sect_name,
                                    replace_variables(key, variables),
                                    replace_variables(value, variables))
-            pool.append(appearance)
+            all_aws_credentials_content.append(appearance)
         with open(os.path.join(path_name, 'source-file'), 'wb') as f:
             for k, v in shaped_vars.items():
                 f.write('export %s=%s' % (k, v))
                 f.write("\n")
 
         prepare_tmux_layout(app, variables['aws_profile'], target_dir=os.path.expanduser(TARGET_LAYOUT_DIR))
-
+    if os.path.isfile(aws_credential_file):
+        original_content = ConfigParser.ConfigParser(allow_no_value=True)
+        original_content.read(aws_credential_file)
+        for section in original_content.sections():
+            for appearance in all_aws_credentials_content:
+                for sec in appearance.sections():
+                    if section == sec:
+                        print "Possible conflict in profile %s! You may want check file %s after operation." % (sec,aws_credential_file)
+        all_aws_credentials_content.insert(0,original_content)
+    else:
+        if not os.path.exists(os.path.dirname(aws_credential_file)):
+            os.makedirs(os.path.dirname(aws_credential_file))
+        with open(aws_credential_file, "w") as f:
+            pass
     with open(os.path.expanduser(aws_credential_file), 'wb') as f:
         for x in all_aws_credentials_content:
-            x.write(f)
-
-    with open(os.path.expanduser(aws_config_file), 'wb') as f:
-        for x in all_aws_config_content:
             x.write(f)
 
 
