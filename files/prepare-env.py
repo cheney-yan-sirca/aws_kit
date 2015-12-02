@@ -6,7 +6,7 @@ import cli.log
 import ConfigParser, io
 
 TARGET_LAYOUT_DIR = '~/.tmuxinator'
-TARGET_ENV_DIR = '/var/tmp/tmux-session-config'
+TARGET_ENV_DIR = os.path.join(TARGET_LAYOUT_DIR, 'tmux-session-config' )
 
 aws_credential_repeat_template = ConfigParser.ConfigParser(allow_no_value=True)
 

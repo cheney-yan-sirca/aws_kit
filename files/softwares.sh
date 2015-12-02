@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-yum groupinstall -y 'Development Tools'
+#yum groupinstall -y 'Development Tools' # not happy with py27?
 
 yum install -y ruby ruby-devel rubygems gcc mysql-devel -y bash-completion zsh --enablerepo epel
 gem install io-console
@@ -18,8 +18,8 @@ runuser -l ec2-user -c 'zsh /home/ec2-user/zsh.sh'
 gem install papertrail
 
 for x in /etc/yum.repos.d/* # this will enable all the repos by default
-do 
-    sed -i 's/^enabled=.*$/enabled=1/g' $x 
+do
+    sed -i 's/^enabled=.*$/enabled=1/g' $x
 done
 
 yum install -y docker

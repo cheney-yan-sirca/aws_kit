@@ -18,7 +18,7 @@ chmod 600  ~/.ssh/config
 
 mv _rpmmacros .rpmmacros
 mv ~/rsync_remote.sh ~/bin/
-~/.tmuxinator/prepare-env.py init-layout
+~/.tmuxinator/prepare-env.py
 
 #=============== using zsh============================================
 wget https://raw.github.com/robbyrussell/oh-my-zsh/master/tools/install.sh -O - | sh
