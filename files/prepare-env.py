@@ -1,12 +1,14 @@
 #!/usr/bin/env python
-import json, yaml
-import os, platform
-import re
+import ConfigParser
+import io
+import json
+import os
+import yaml
+
 import cli.log
-import ConfigParser, io
 
 TARGET_LAYOUT_DIR = '~/.tmuxinator'
-TARGET_ENV_DIR = os.path.join(TARGET_LAYOUT_DIR, 'tmux-session-config' )
+TARGET_ENV_DIR = os.path.join(TARGET_LAYOUT_DIR, 'tmux-session-config')
 
 aws_credential_repeat_template = ConfigParser.ConfigParser(allow_no_value=True)
 
@@ -39,7 +41,7 @@ for path_name in [TARGET_LAYOUT_DIR, TARGET_ENV_DIR]:
 
 def prepare_global_aws_files(app, config, files_contained_path=TARGET_ENV_DIR, aws_credential_file='~/.aws/credentials',
                              ):
-    aws_credential_file=os.path.expanduser(aws_credential_file)
+    aws_credential_file = os.path.expanduser(aws_credential_file)
     shaped_vars = {}
     for value in config.values():
         variables = value['variables']
@@ -56,6 +58,8 @@ def prepare_global_aws_files(app, config, files_contained_path=TARGET_ENV_DIR, a
             if 'var' in file:  # this needs to go into variable
                 shaped_vars[replace_variables(file['var'], variables)] = file_path
             if 'content' in file:
+                if isinstance(file['content'], list):
+                    file['content'] = '\n'.join(file['content'])
                 with open(file_path, 'wb') as f:
                     file_content = replace_variables(file['content'], variables)
                     f.write(file_content)
@@ -103,8 +107,9 @@ def prepare_global_aws_files(app, config, files_contained_path=TARGET_ENV_DIR, a
             for appearance in all_aws_credentials_content:
                 for sec in appearance.sections():
                     if section == sec:
-                        print "Possible conflict in profile %s! You may want check file %s after operation." % (sec,aws_credential_file)
-        all_aws_credentials_content.insert(0,original_content)
+                        print "Possible conflict in profile %s! You may want check file %s after operation." % (
+                        sec, aws_credential_file)
+        all_aws_credentials_content.insert(0, original_content)
     else:
         if not os.path.exists(os.path.dirname(aws_credential_file)):
             os.makedirs(os.path.dirname(aws_credential_file))
