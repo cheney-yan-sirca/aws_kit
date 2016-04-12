@@ -30,16 +30,20 @@ fi
 echo "preparing the new instance"
 cd $HERE
 
-export name=$(aws ec2 describe-images --filters Name=name,Values="${IMG}_*" | grep '"Name"' | grep $IMG | awk -F'"' '{print $4}' | sort | tail -1 | xargs )
+export name=$(aws ec2 describe-images --filters Name=name,Values="${IMG}" | grep '"Name"' | grep $IMG | awk -F'"' '{print $4}' | sort | tail -1 | xargs )
 echo "${name} is the latest $IMG iamge."
 export image_id=$(aws ec2 describe-images --filters Name=name,Values=${name} | grep '"ImageId"' | awk -F'"' '{print $4}' | sort | tail -1 | xargs )
 echo "${image_id} is the iamge id for ${name}."
+if [ ${image_id} == "" ]; then
+    echo "Something is wrong! Could not figure out image_id"
+    exit 1
+fi
 instance_id=$(aws ec2 run-instances --image-id ${image_id} $EBS_OPTIONS --key-name $SSH_KEY_NAME --security-groups  remote-working-desktop  --iam-instance-profile Name=$INSTANCE_PROFILE --instance-initiated-shutdown-behavior stop  --instance-type $instance_type | grep '"InstanceId"' | awk -F'"' '{print $4}' |xargs)
 echo "${instance_id} is the newly generated instance id."
 aws ec2 create-tags --resource ${instance_id} --tags Key=Name,Value=${user_name}-desktop
 aws ec2 create-tags --resource ${instance_id} --tags Key=Billing,Value=${use}
 aws ec2 create-tags --resource ${instance_id} --tags Key=User,Value=${user_name}
-aws ec2 create-tags --resource ${instance_id} --tags Key=Janitor,Value='{"expires":"never"}'
+aws ec2 create-tags --resource ${instance_id} --tags Key=Janitor,Value='\{"expires":"never"\}'
 echo "Now the instance ${user_name}-desktop is up. Please got to aws console to check the instance and do your furture operations.
 You may want to update 'remote' entry in your hosts file. It will be often used in later stage."
 ## initialize instance with xx
@@ -71,7 +75,7 @@ if [ "$old_instance_id" != "" ]; then
     echo "Wait until the old instance has been totally terminate"
     while true; do
         status=$(aws ec2 describe-instances --instance-ids $old_instance_id | grep '"Name":' | awk -F '"' '{print $4}' |xargs)
-        if [[ ( "$status" == "" ) || ( "$status" == "terminated" ) ]];
+        if [[  "$status" == "" ]] || [[ "$status" == "terminated"  ]];
         then
             break
         fi
