@@ -2,7 +2,6 @@
 
 mkdir ~/work;
 mkdir ~/bin/
-exit 1
 cd ~
 
 mv _tmux.conf .tmux.conf
