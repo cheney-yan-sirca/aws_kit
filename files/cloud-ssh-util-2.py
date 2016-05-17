@@ -270,7 +270,6 @@ def prepare_ssh_box(asg_name, region, ssh_key_path, logger, action='setup'):
                                         logger.warn("Updating security group, removed %s", public_ip)
                                     finally:
                                         pass
-            exit(1)
 
 
 def write_ssh_file(ssh_config_path, cloud_name, new_lines, logger):
