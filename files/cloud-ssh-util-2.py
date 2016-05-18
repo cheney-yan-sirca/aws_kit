@@ -14,6 +14,21 @@ from boto.ec2.securitygroup import IPPermissions
 from boto.exception import EC2ResponseError
 
 
+def get_stdout_logger():
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(message)s')
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+    return logger
+
+
+logger = get_stdout_logger()
+
+
 class ParseState:
     top_level = 1
     within_host_def = 2
@@ -39,7 +54,7 @@ def check_file_exists(file):
     return None
 
 
-def resolve_key_path(key_name, key_file_path_or_dir, logger):
+def resolve_key_path(key_name, key_file_path_or_dir):
     candidates = []
     if key_file_path_or_dir:
         if key_file_path_or_dir.endswith("%s.pem" % key_name):
@@ -92,19 +107,7 @@ def get_env(env, default):
         return default
 
 
-def get_stdout_logger():
-    logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
-
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    ch.setFormatter(formatter)
-    logger.addHandler(ch)
-    return logger
-
-
-def find_sshbox_stack(cloud_name, region, logger):
+def find_sshbox_stack(cloud_name, region):
     wanted_status = ['UPDATE_COMPLETE', 'ROLLBACK_COMPLETE', 'CREATE_COMPLETE', 'UPDATE_ROLLBACK_COMPLETE']
     logger.info("Connecting to region %s", region)
     stack_connection = boto.cloudformation.connect_to_region(region)
@@ -126,7 +129,7 @@ def find_localhost_public_ip():
     return urlopen('http://ip.42.pl/raw').read()
 
 
-def prepare_all_instances(cloud_name, region, ssh_key_path, logger):
+def prepare_all_instances(cloud_name, region, ssh_key_path):
     results = {}
     logger.info("Finding ASGs for cloud %s", cloud_name)
     full_asg_name_pattern = re.compile('%s-.+-[^-]+-[^-]+' % cloud_name)
@@ -152,12 +155,12 @@ def prepare_all_instances(cloud_name, region, ssh_key_path, logger):
         instances = ec2_conn.get_only_instances(instance_ids=found_instances)
         for instance in instances:
             key = '%s-%s' % (instance.tags.get('Name', 'NA'), instance.id)
-            value = (instance.private_ip_address, resolve_key_path(instance.key_name, ssh_key_path, logger))
+            value = (instance.private_ip_address, resolve_key_path(instance.key_name, ssh_key_path))
             results[key] = value
     return results
 
 
-def prepare_ssh_box(asg_name, region, ssh_key_path, logger, action='setup'):
+def prepare_ssh_box(asg_name, region, ssh_key_path, action='setup'):
     full_asg_name_pattern = re.compile('%s-[^-]+-[^-]+' % asg_name)
     logger.info("Finding ASG of %s", asg_name)
     autoscale_conn = boto.ec2.autoscale.connect_to_region(region)
@@ -190,7 +193,7 @@ def prepare_ssh_box(asg_name, region, ssh_key_path, logger, action='setup'):
             found_asg.desired_capacity = 1
             found_asg.update()
 
-        logger.info("Waiting for the only instance in ASG %s that is active", asg_name)
+        logger.info("Waiting for an active instance in ASG %s", asg_name)
         found_instance = None
         while True:
             found_asg = autoscale_conn.get_all_groups(names=[found_asg.name])[0]
@@ -243,7 +246,7 @@ def prepare_ssh_box(asg_name, region, ssh_key_path, logger, action='setup'):
                 raise
             logger.warn("Seems we could not find the rule we created, but the existing rule has allowed this host.")
 
-        return asg_name, hop_ip_address, resolve_key_path(hop_key_name, ssh_key_path, logger)
+        return asg_name, hop_ip_address, resolve_key_path(hop_key_name, ssh_key_path)
     else:  # teardown
         logger.info("Resizing sshbox asg size to 0")
         if found_asg.desired_capacity != 0:
@@ -272,7 +275,7 @@ def prepare_ssh_box(asg_name, region, ssh_key_path, logger, action='setup'):
                                         pass
 
 
-def write_ssh_file(ssh_config_path, cloud_name, new_lines, logger):
+def write_ssh_file(ssh_config_path, cloud_name, new_lines):
     if not os.path.isfile(ssh_config_path):
         os.fdopen(os.open(ssh_config_path, os.O_WRONLY | os.O_CREAT, 0600), 'w').close()
     ssh_config_lines = []
@@ -316,16 +319,16 @@ def write_ssh_file(ssh_config_path, cloud_name, new_lines, logger):
     logger.info("Successfully updated into %s" % ssh_config_path)
 
 
-def collect_and_generate_ssh_lines(cloud_name, region, ssh_key_file_or_dir, ssh_config_path, logger, cmd):
+def collect_and_generate_ssh_lines(cloud_name, region, ssh_key_file_or_dir, ssh_config_path, cmd):
     known_regions = ["ap-southeast-2", "us-west-2", "us-east-1", "ap-northeast-1", "sa-east-1",
                      "ap-southeast-1", "us-west-1", "eu-west-1"]  # keep the sequence.
     stack = None
     if region is not None:
-        stack = find_sshbox_stack(cloud_name, region, logger)
+        stack = find_sshbox_stack(cloud_name, region)
     else:
         logger.info("No region provided, finding the correct region... ")
         for region_candidate in known_regions:
-            stack = find_sshbox_stack(cloud_name, region_candidate, logger)
+            stack = find_sshbox_stack(cloud_name, region_candidate)
             if stack:
                 region = region_candidate
                 break
@@ -335,39 +338,38 @@ def collect_and_generate_ssh_lines(cloud_name, region, ssh_key_file_or_dir, ssh_
     else:
         logger.info("Find stack %s-sshbox in region %s.", cloud_name, region)
 
-    hopper_info = prepare_ssh_box(stack.stack_name, region, ssh_key_file_or_dir, logger, cmd)
+    hopper_info = prepare_ssh_box(stack.stack_name, region, ssh_key_file_or_dir, cmd)
     if cmd == 'setup':
-        instances = prepare_all_instances(cloud_name, region, ssh_key_file_or_dir, logger)
+        instances = prepare_all_instances(cloud_name, region, ssh_key_file_or_dir)
         return _generate_ssh_config_lines(hopper_info[0], hopper_info[1], hopper_info[2], instances, ssh_config_path)
     else:
         return []
 
 
-def update_ssh_config(cloud_name, region, ssh_config_file, ssh_key_file_or_dir, logger, cmd):
+def update_ssh_config(cloud_name, region, ssh_config_file, ssh_key_file_or_dir, cmd):
     ssh_config_file = os.path.expanduser(ssh_config_file)
-    new_lines = collect_and_generate_ssh_lines(cloud_name, region, ssh_key_file_or_dir, ssh_config_file, logger, cmd)
+    new_lines = collect_and_generate_ssh_lines(cloud_name, region, ssh_key_file_or_dir, ssh_config_file, cmd)
     logger.info("Writting into ssh config file: ---start---\n%s\n----end---", "\n".join(new_lines))
-    write_ssh_file(ssh_config_file, cloud_name, new_lines, logger)
+    write_ssh_file(ssh_config_file, cloud_name, new_lines)
 
 
 def main():
-    logger = get_stdout_logger()
     parser = argparse.ArgumentParser(
-        "Collect cloud instances and execute a command on all the instances within a stack. This script"
-        " looks into sshbox stack to seek .")
+        "Build ssh config for a cloud by scanning all the instances within the cloud.")
     parser.add_argument("-F", dest="config_file", default='~/.ssh/config',
                         help='Specifies an alternative per-user configuration file to update the host name into.  '
                              'By default this writes into ~/.ssh/config.')
     parser.add_argument("-K", dest="ssh_key_file_or_dir",
-                        help='If it looks like *.pem, then this will be the key file be used to access all the instances.'
-                             'Else, it is the path of where to find the correct key from. Example, ~/.ssh. Then the script'
-                             'will try to use the ~/.ssh/key_name.pem as the private key. If the file does not exist,'
-                             'then the script fails.', default=get_env('SSH_KEY_FILE', '~/.ssh/'))
+                        help='Specify the login ssh key or the path of the ssh keys locate.',
+                        default=get_env('SSH_KEY_FILE', '~/.ssh/'))
     parser.add_argument('--verbose', dest='verbose', help='Print verbose information.', action='store_true',
                         default=False)
-    parser.add_argument('--region', dest='region', help='If you know the region, please specify to fastern process.',
+    parser.add_argument('--region', dest='region',
+                        help='If you know the region, please specify so the script can be faster.',
                         default=None)
-    parser.add_argument('--cmd', dest='cmd', help='Setup or shutdown the sshbox asg.', default="setup",
+    parser.add_argument('--cmd', dest='cmd',
+                        help='Setup or teardown the ssh config, including modifying ssh config file and'
+                             'setup/teardown sshbox instances. .', default="setup",
                         choices=['setup', 'teardown'])
     parser.set_defaults(quiet=False)
 
@@ -379,7 +381,7 @@ def main():
         logger.setLevel(logging.INFO)
     else:
         logger.setLevel(logging.WARNING)
-    update_ssh_config(args.cloud_name, args.region, args.config_file, args.ssh_key_file_or_dir, logger, args.cmd)
+    update_ssh_config(args.cloud_name, args.region, args.config_file, args.ssh_key_file_or_dir, args.cmd)
 
 
 if __name__ == '__main__':
