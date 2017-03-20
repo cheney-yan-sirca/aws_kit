@@ -3,11 +3,13 @@ import ConfigParser
 import io
 import json
 import os
+
+import datetime
 import yaml
 
 import cli.log
 
-TARGET_LAYOUT_DIR = '~/.tmuxinator'
+TARGET_LAYOUT_DIR =  os.path.expanduser('~/.tmuxinator')
 TARGET_ENV_DIR = os.path.join(TARGET_LAYOUT_DIR, 'tmux-session-config')
 
 aws_credential_repeat_template = ConfigParser.ConfigParser(allow_no_value=True)
@@ -15,6 +17,8 @@ aws_credential_repeat_template = ConfigParser.ConfigParser(allow_no_value=True)
 aws_credential_repeat_template.readfp(io.BytesIO("""[<%aws_profile%>]
 aws_access_key_id = <%aws_access_key_id%>
 aws_secret_access_key = <%aws_secret_access_key%>
+role_arn=<%role_arn%>
+source_profile=<%source_profile%>
 region = <%region%>
 
 """))
@@ -22,7 +26,6 @@ region = <%region%>
 templates = {
     "aws_credential_repeat_template": aws_credential_repeat_template,
 }
-
 
 def replace_variables(possible_variable, variables):
     for key, value in variables.items():
@@ -34,7 +37,6 @@ all_aws_config_content = []
 all_aws_credentials_content = []
 
 for path_name in [TARGET_LAYOUT_DIR, TARGET_ENV_DIR]:
-    path_name = os.path.expanduser(path_name)
     if not os.path.exists(path_name):
         os.makedirs(path_name)
 
@@ -45,7 +47,7 @@ def prepare_global_aws_files(app, config, files_contained_path=TARGET_ENV_DIR, a
     shaped_vars = {}
     for value in config.values():
         variables = value['variables']
-        path_name = os.path.join(os.path.expanduser(files_contained_path), variables['aws_profile'])
+        path_name = os.path.join(files_contained_path, variables['aws_profile'])
         if not os.path.exists(path_name):
             os.makedirs(path_name)
         vars = value['vars']  # this goes to environmental file
@@ -63,37 +65,21 @@ def prepare_global_aws_files(app, config, files_contained_path=TARGET_ENV_DIR, a
                 with open(file_path, 'wb') as f:
                     file_content = replace_variables(file['content'], variables)
                     f.write(file_content)
-            elif 'content_template' in file:  # this file is previsously for BOTO_CONFIG and might not needed any more.
-                template = templates[file['content_template']]
-                target_ini = ConfigParser.RawConfigParser()
-                for sect in template.sections():
-                    new_sect_name = replace_variables(sect, variables)
-                    target_ini.add_section(new_sect_name)
-                    for item in template.items(sect):
-                        key = item[0]
-                        value = item[1] if item[1] else "NONE"
-                        app.log.debug("processing variable %s:%s" % (replace_variables(key, variables),
-                                                                     replace_variables(value, variables)))
-                        target_ini.set(new_sect_name,
-                                       replace_variables(key, variables),
-                                       replace_variables(value, variables))
-                with open(file_path, 'wb') as f:
-                    target_ini.write(f)
             if 'mod' in file:
                 os.chmod(file_path, int(file['mod'], 8))
         for repeated_template, pool in {aws_credential_repeat_template: all_aws_credentials_content,
                                         }.items():
-            appearance = ConfigParser.RawConfigParser()
+            one_profile = ConfigParser.RawConfigParser()
             for sect in repeated_template.sections():
                 new_sect_name = replace_variables(sect, variables)
-                appearance.add_section(new_sect_name)
+                one_profile.add_section(new_sect_name)
                 for item in repeated_template.items(sect):
-                    key = item[0]
-                    value = item[1] if item[1] else "NONE"
-                    appearance.set(new_sect_name,
-                                   replace_variables(key, variables),
-                                   replace_variables(value, variables))
-            all_aws_credentials_content.append(appearance)
+                    key = replace_variables(item[0], variables)
+                    value = replace_variables(item[1] if item[1] else "NONE", variables)
+                    if not key.startswith('<%') and not value.startswith('<%'):
+                        one_profile.set(new_sect_name, key, value)
+            all_aws_credentials_content.append(one_profile)
+
         with open(os.path.join(path_name, 'source-file'), 'wb') as f:
             for k, v in shaped_vars.items():
                 f.write('export %s=%s' % (k, v))
@@ -101,21 +87,12 @@ def prepare_global_aws_files(app, config, files_contained_path=TARGET_ENV_DIR, a
 
         prepare_tmux_layout(app, variables['aws_profile'], target_dir=os.path.expanduser(TARGET_LAYOUT_DIR))
     if os.path.isfile(aws_credential_file):
-        original_content = ConfigParser.ConfigParser(allow_no_value=True)
-        original_content.read(aws_credential_file)
-        for section in original_content.sections():
-            for appearance in all_aws_credentials_content:
-                for sec in appearance.sections():
-                    if section == sec:
-                        print "Possible conflict in profile %s! You may want check file %s after operation." % (
-                        sec, aws_credential_file)
-        all_aws_credentials_content.insert(0, original_content)
-    else:
-        if not os.path.exists(os.path.dirname(aws_credential_file)):
-            os.makedirs(os.path.dirname(aws_credential_file))
-        with open(aws_credential_file, "w") as f:
-            pass
-    with open(os.path.expanduser(aws_credential_file), 'wb') as f:
+        # backup the file
+        backup_file = '%s.backup.%s'%(aws_credential_file, datetime.datetime.now().isoformat())
+        os.rename(aws_credential_file, backup_file)
+    if not os.path.exists(os.path.dirname(aws_credential_file)):
+        os.makedirs(os.path.dirname(aws_credential_file))
+    with open(aws_credential_file, 'wb') as f:
         for x in all_aws_credentials_content:
             x.write(f)
 
