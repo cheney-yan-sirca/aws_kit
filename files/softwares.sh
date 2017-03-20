@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #yum groupinstall -y 'Development Tools' # not happy with py27?
 
-yum install -y ruby ruby-devel rubygems gcc mysql-devel -y bash-completion zsh --enablerepo epel
+yum install -y git ruby ruby-devel rubygems gcc mysql-devel -y bash-completion zsh --enablerepo epel
 gem install io-console
 pip install --upgrade awscli pyCLI
 touch /home/ec2-user/.zshrc
