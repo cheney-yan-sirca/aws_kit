@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 import ConfigParser
+import datetime
 import io
 import json
 import os
 
-import datetime
-import yaml
-
 import cli.log
+import yaml
 
 TARGET_LAYOUT_DIR =  os.path.expanduser('~/.tmuxinator')
 TARGET_ENV_DIR = os.path.join(TARGET_LAYOUT_DIR, 'tmux-session-config')
@@ -62,7 +61,14 @@ def prepare_global_aws_files(app, config, files_contained_path=TARGET_ENV_DIR, a
             if 'content' in file:
                 if isinstance(file['content'], list):
                     file['content'] = '\n'.join(file['content'])
-                with open(file_path, 'wb') as f:
+            elif "from" in file:
+                from_file_path=os.path.expanduser(file['from'])
+                if not os.path.isfile(from_file_path):
+                    raise ValueError("Failed to find source file %s" % from_file_path)
+                file['content']=open(from_file_path).read()
+            else:
+                raise ValueError("Must provide either 'content' or file source('from') for a file. ")
+            with open(file_path, 'wb') as f:
                     file_content = replace_variables(file['content'], variables)
                     f.write(file_content)
             if 'mod' in file:
