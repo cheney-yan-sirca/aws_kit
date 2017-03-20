@@ -55,19 +55,24 @@ def prepare_global_aws_files(app, config, files_contained_path=TARGET_ENV_DIR, a
             shaped_vars[replace_variables(var, variables)] = replace_variables(var_val, variables)
 
         for file in value['files']:
-            file_path = os.path.join(path_name, file['file_name'])
-            if 'var' in file:  # this needs to go into variable
-                shaped_vars[replace_variables(file['var'], variables)] = file_path
             if 'content' in file:
                 if isinstance(file['content'], list):
                     file['content'] = '\n'.join(file['content'])
-            elif "from" in file:
-                from_file_path=os.path.expanduser(file['from'])
+            elif 'file_source' in file:
+                from_file_path=os.path.expanduser(file['file_source'])
                 if not os.path.isfile(from_file_path):
                     raise ValueError("Failed to find source file %s" % from_file_path)
                 file['content']=open(from_file_path).read()
             else:
-                raise ValueError("Must provide either 'content' or file source('from') for a file. ")
+                raise ValueError("Must provide either 'content' or 'file_source' for a file. ")
+            if 'file_name' in file:
+                file_path = os.path.join(path_name, file['file_name'])
+            elif 'file_source' in file:
+                file_path=os.path.join(path_name, os.path.basename(file['file_source']))
+            else:
+                file_path=os.path.join(path_name, 'ssh_key_file.pem')
+            if 'var' in file:  # this needs to go into variable
+                shaped_vars[replace_variables(file['var'], variables)] = file_path
             with open(file_path, 'wb') as f:
                     file_content = replace_variables(file['content'], variables)
                     f.write(file_content)
