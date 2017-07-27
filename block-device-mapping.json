@@ -1,6 +1,6 @@
 [
    {
       "DeviceName" : "/dev/xvda",
-      "Ebs" : { "VolumeSize" : 150 }
+      "Ebs" : { "VolumeSize" :300 }
    }
 ]
