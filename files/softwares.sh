@@ -13,10 +13,10 @@ for x in /etc/yum.repos.d/* # this will enable all the repos by default
 do
     sed -i 's/^enabled=.*$/enabled=1/g' $x
 done
-#
-#yum install -y docker
-#service docker start
-#sudo usermod -a -G docker ec2-user
+
+yum install -y docker
+service docker start
+sudo usermod -a -G docker ec2-user
 
 # a patch for the compinit error
 chmod a-r /etc/profile.d/aws-cli.sh

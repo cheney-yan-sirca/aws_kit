@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-user=$(whoami|xargs)
-sudo chsh -s $(which zsh) $user
+sudo chsh -s $(which zsh) $USER
 
 mkdir ~/work;
 
@@ -10,4 +9,4 @@ LogLevel QUIET
 StrictHostKeyChecking no
 EOL
 chmod 600  ~/.ssh/*
-
+virtualenv -p /usr/bin/python27 ~/py27
