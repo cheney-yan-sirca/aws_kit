@@ -10,3 +10,5 @@ StrictHostKeyChecking no
 EOL
 chmod 600  ~/.ssh/*
 virtualenv -p /usr/bin/python27 ~/py27
+source ~/py27/bin/activate
+pip insall pycli simplejson pyaml

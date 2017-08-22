@@ -5,7 +5,7 @@ EC2_USER=ec2-user
 set -evx
 function usage() {
     cat >&2 <<EOF
-Usage: $0 [-h] -H host_ip  [-K SSH_KEY_FILE] [-U EC2_USER_NAME] [-R] -r remote_name [-S setup_ssh_auth]
+Usage: $0 [-h] -H host_ip  [-K SSH_KEY_FILE] [-U EC2_USER_NAME] [-R] -r remote_name [-S(setup_ssh_auth) true|false]
 
 OPTIONS
     -h                          This help
@@ -36,7 +36,7 @@ done
 [[ "$host_ip" == "" ]] && echo "Must provide remote host IP" && exit
 [[ "$remote_name" == "" ]] && echo "Must provide a friendly name to the host" && exit
 ### replace key for security
-if [ "set_ssh_auth" == "true" ]; then
+if [ "$set_ssh_auth" == "true" ]; then
   sed -i "s/^Host ${remote_name}$/Host ${remote_name}.$(date +%s)/" ~/.ssh/config
   if [ "$replace_key" == "true" ]; then
     cat ~/.ssh/id_rsa.pub | ssh -i $SSH_KEY_FILE $EC2_USER@$host_ip 'cat > .ssh/authorized_keys'
@@ -59,9 +59,9 @@ scp  -r ~/.ssh/id_rsa* ${remote_name}:~/.ssh/
 fi
 scp  -r $HERE/files/* ${remote_name}:~
 ssh -t -t  ${remote_name} "sudo bash /home/$EC2_USER/softwares.sh"
-ssh -t -t  ${remote_name} "bash -c $(curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh)"
+ssh -t -t  ${remote_name} "curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh | bash || true"
 
-rsync  -r ~/.ssh ${remote_name}:~/ --include '*.pem' --exclude '*'
+rsync  -r ~/.ssh ${remote_name}:~/ --include '*.pem' -v
 rsync  -r ~/bin ${remote_name}:~/ -v --exclude packer.io --exclude bookmarks --exclude .git
 rsync  -r ~/.oh-my-zsh ${remote_name}:~/ -v --exclude .git
 rsync  -r ~/.vim ${remote_name}:~/ -v --exclude .git
