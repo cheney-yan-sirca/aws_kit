@@ -99,3 +99,5 @@ ENV/
 
 # jenkins env info
 jenkins_jobs.properties
+
+credentials
