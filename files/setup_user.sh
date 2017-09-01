@@ -11,4 +11,4 @@ EOL
 chmod 600  ~/.ssh/*
 virtualenv -p /usr/bin/python27 ~/py27
 source ~/py27/bin/activate
-pip install pycli simplejson pyaml
+pip install pycli simplejson pyaml godaddypy aws-ec2-assign-elastic-ip

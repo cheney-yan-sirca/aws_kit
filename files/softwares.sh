@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #yum groupinstall -y 'Development Tools' # not happy with py27?
-yum install -y git ruby ruby-devel rubygems gcc mysql-devel -y bash-completion zsh tmux mosh rlwrap --enablerepo epel
+yum install -y git ruby ruby-devel rubygems gcc mysql-devel -y bash-completion zsh tmux mosh rlwrap jq --enablerepo epel
 gem install io-console
-pip install --upgrade awscli pyCLI boto3 requests[security] pylint tox twine thefuck
+pip install --upgrade awscli pyCLI boto3 requests[security] pylint tox twine thefuck godaddypy
 # working environment tools
 gem install tmuxinator -v 0.6.8
 gem install papertrail
