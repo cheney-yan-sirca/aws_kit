@@ -12,7 +12,7 @@ if [ "${image_id}" == "" ]; then
     echo "Something is wrong! Could not figure out image_id"
     exit 1
 fi
-instance_id=$(aws ec2 run-instances --image-id ${image_id} $EBS_OPTIONS --key-name $SSH_KEY_NAME --security-groups  remote-working-desktop  --iam-instance-profile Name=$INSTANCE_PROFILE --instance-initiated-shutdown-behavior stop  --instance-type $instance_type | grep '"InstanceId"' | awk -F'"' '{print $4}' |xargs)
+instance_id=$(aws ec2 run-instances --image-id ${image_id} $EBS_OPTIONS --key-name $SSH_KEY_NAME --security-groups  "${SECURITY_GROUP}"  --iam-instance-profile Name=$INSTANCE_PROFILE --instance-initiated-shutdown-behavior stop  --instance-type $instance_type | grep '"InstanceId"' | awk -F'"' '{print $4}' |xargs)
 if [ "${instance_id}" == "" ]; then
         echo "Something is wrong! Could not create instance"
         exit 1

@@ -62,7 +62,7 @@ ssh -t -t  ${remote_name} "sudo bash /home/$EC2_USER/softwares.sh"
 ssh -t -t  ${remote_name} "curl -fsSL https://raw.githubusercontent.com/robbyrussell/oh-my-zsh/master/tools/install.sh | bash || true"
 
 scp  -r ~/.ssh/*.pem ${remote_name}:~/.ssh/
-rsync  -r ~/bin ${remote_name}:~/ -v --exclude packer.io --exclude bookmarks --exclude .git
+rsync  -r ~/bin ${remote_name}:~/ -v --exclude packer.io --exclude bookmarks --exclude .git --exclude ngrok
 rsync  -r ~/.oh-my-zsh ${remote_name}:~/ -v --exclude .git
 rsync  -r ~/.vim ${remote_name}:~/ -v --exclude .git
 scp  -r ~/.tmux.conf ~/.*rc ${remote_name}:~/
